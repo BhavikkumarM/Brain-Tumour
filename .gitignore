@@ -5,6 +5,7 @@ __pycache__/
 .idea/
 .vscode/
 Datasets/
-*.h5
-*.pkl
 deploy.ps1
+
+# Large model files (over 100MB GitHub limit)
+project 1 college-20260930T082434Z-1-001/project 1 college/ALZCLASS_40EPK.h5
