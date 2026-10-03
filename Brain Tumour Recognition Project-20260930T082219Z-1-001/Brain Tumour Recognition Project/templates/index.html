@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f5f0">
+  <meta name="description" content="Explore an educational brain MRI image classification model and try it with example or uploaded images.">
+  <title>NeuroLens — Brain MRI Model Demo</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <script src="{{ url_for('static', filename='script.js') }}" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="NeuroLens home">
+      <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+      <span>neuro<span class="brand-light">lens</span><small>MODEL LAB</small></span>
+    </a>
+    <nav aria-label="Main navigation">
+      <a href="#demo">Try the model</a>
+      <a href="#model">How it works</a>
+      <a class="nav-pill" href="#limits">Model notes <span aria-hidden="true">↗</span></a>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <div class="eyebrow"><span class="eyebrow-dot"></span> COMPUTER VISION · MODEL SHOWCASE</div>
+        <h1 id="hero-title">A closer look<br>at <span>brain MRI.</span></h1>
+        <p class="hero-lede">An interactive look at a student-built image classifier. Explore the pipeline, try a sample, or bring an MRI image of your own.</p>
+        <a class="button button-dark" href="#demo">Explore the model <span aria-hidden="true">↓</span></a>
+        <p class="hero-caption"><span class="tiny-bars" aria-hidden="true"><i></i><i></i><i></i></span> BINARY IMAGE CLASSIFICATION <span class="caption-separator">/</span> EDUCATIONAL DEMO</p>
+      </div>
+      <div class="hero-art" aria-hidden="true">
+        <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+        <div class="scan-frame"><div class="scan-grid"></div><div class="brain-shape"><span></span><span></span><span></span><span></span><span></span></div><div class="scan-crosshair crosshair-one"></div><div class="scan-crosshair crosshair-two"></div><div class="scan-sweep"></div></div>
+        <div class="art-tag tag-top"><span class="tag-dot"></span> IMAGE INPUT <b>64 × 64</b></div>
+        <div class="art-tag tag-bottom"><span class="tag-line"></span> MODEL OUTPUT <b>01 CLASS</b></div>
+        <div class="art-index">NL<span>—</span>01</div>
+      </div>
+    </section>
+
+    <section class="demo-section section-wrap" id="demo" aria-labelledby="demo-title">
+      <div class="section-heading">
+        <div><div class="eyebrow">01 / INTERACTIVE DEMO</div><h2 id="demo-title">Put the model to work.</h2></div>
+        <p>Choose an example scan or upload a JPG, JPEG, or PNG image. The server processes it for this request; the app does not keep an image archive.</p>
+      </div>
+
+      <div class="demo-shell">
+        <div class="demo-controls">
+          <div class="step-label"><span>01</span> Choose an image</div>
+          <h3>Start with a scan</h3>
+          <p class="control-hint">Select a demo image, or use one of your own.</p>
+          <div class="sample-grid" id="sample-grid" aria-label="Demo sample images">
+            <p class="loading-copy">Loading sample scans…</p>
+          </div>
+
+          <div class="or-divider"><span>OR UPLOAD YOUR OWN</span></div>
+          <label class="upload-zone" id="upload-zone" for="image-input">
+            <input id="image-input" type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png">
+            <span class="upload-icon" aria-hidden="true">↑</span>
+            <span class="upload-text"><strong>Choose an image</strong><span>or drag and drop it here</span></span>
+            <span class="upload-meta">JPG, JPEG, PNG <b>·</b> UP TO 8 MB</span>
+          </label>
+          <p class="privacy-note"><span aria-hidden="true">◈</span> Used for this request only; don't upload identifiable information.</p>
+
+          <button class="button button-accent analyze-button" id="analyze-button" type="button" disabled>
+            <span class="button-label">Analyze image</span><span class="button-arrow" aria-hidden="true">↗</span>
+          </button>
+          <p class="form-error" id="form-error" role="alert" hidden></p>
+        </div>
+
+        <div class="demo-output">
+          <div class="output-topline"><span class="step-label"><span>02</span> Model response</span><span class="live-indicator"><i></i> READY</span></div>
+          <div class="preview-stage" id="preview-stage">
+            <div class="preview-empty" id="preview-empty">
+              <div class="preview-placeholder" aria-hidden="true"><span class="placeholder-ring"></span><span class="placeholder-cross">+</span><span class="placeholder-corner corner-tl"></span><span class="placeholder-corner corner-br"></span></div>
+              <p>Your image preview will appear here</p><span>SELECT A SAMPLE OR UPLOAD AN IMAGE</span>
+            </div>
+            <img id="image-preview" alt="Selected brain MRI image preview" hidden>
+            <div class="preview-overlay" id="preview-overlay" hidden><span></span> ANALYZING IMAGE</div>
+            <div class="preview-corner-label" id="preview-label" hidden>INPUT PREVIEW <b>RGB</b></div>
+          </div>
+          <div class="result-panel" id="result-panel" aria-live="polite" aria-atomic="true">
+            <div class="result-placeholder"><span class="result-spark" aria-hidden="true">✳</span><span>Choose an image to see the model response.</span></div>
+          </div>
+          <div class="score-note" id="score-note" hidden><span class="score-rule"></span><span>Raw model score · threshold <b>0.50</b></span><span class="score-value" id="score-value"></span></div>
+        </div>
+      </div>
+      <p class="demo-disclaimer" role="note"><span aria-hidden="true">ⓘ</span> This is an educational demonstration, not a medical device. The output is not a diagnosis and should not guide healthcare decisions.</p>
+    </section>
+
+    <section class="model-section section-wrap" id="model" aria-labelledby="model-title">
+      <div class="section-heading">
+        <div><div class="eyebrow">02 / UNDER THE HOOD</div><h2 id="model-title">Small image. Clear pipeline.</h2></div>
+        <p>One image passes through the same preparation steps used during training before the classifier returns a score.</p>
+      </div>
+      <div class="pipeline" aria-label="Model image processing steps">
+        <article class="pipeline-card"><span class="pipeline-index">STEP 01</span><div class="pipeline-icon icon-upload" aria-hidden="true"><i></i><i></i><i></i></div><h3>Image input</h3><p>A JPG, JPEG, or PNG scan is validated and decoded for this request.</p><span class="pipeline-value">MRI IMAGE</span></article>
+        <span class="pipeline-arrow" aria-hidden="true">→</span>
+        <article class="pipeline-card"><span class="pipeline-index">STEP 02</span><div class="pixel-icon" aria-hidden="true"></div><h3>Prepare</h3><p>Converted to RGB, resized, and normalized to match training.</p><span class="pipeline-value">64 × 64 · RGB · 0–1</span></article>
+        <span class="pipeline-arrow" aria-hidden="true">→</span>
+        <article class="pipeline-card"><span class="pipeline-index">STEP 03</span><div class="network-icon" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><h3>Classify</h3><p>A convolutional neural network returns a single sigmoid score.</p><span class="pipeline-value">BINARY CNN · 10 EPOCHS</span></article>
+        <span class="pipeline-arrow" aria-hidden="true">→</span>
+        <article class="pipeline-card"><span class="pipeline-index">STEP 04</span><div class="output-icon" aria-hidden="true"><span>0</span><span>1</span></div><h3>Model output</h3><p>A 0.50 threshold maps the score to one of two classes.</p><span class="pipeline-value">NO / TUMOR CLASS</span></article>
+      </div>
+      <div class="dataset-strip">
+        <div><span class="eyebrow">TRAINING DATASET</span><strong>3,010 <small>images</small></strong></div>
+        <div class="dataset-count"><span class="dataset-dot dot-no"></span><span>No tumor class</span><b>1,510</b></div>
+        <div class="dataset-count"><span class="dataset-dot dot-yes"></span><span>Tumor class</span><b>1,500</b></div>
+        <p>Dataset counts from the project files. They do not establish clinical representativeness.</p>
+      </div>
+    </section>
+
+    <section class="limits-section" id="limits" aria-labelledby="limits-title">
+      <div class="section-wrap limits-inner">
+        <div class="limits-mark" aria-hidden="true"><span>!</span></div>
+        <div><div class="eyebrow">03 / READ BEFORE USING</div><h2 id="limits-title">A model output is<br>not a medical answer.</h2></div>
+        <div class="limits-copy"><p>This classifier is a student project for learning and demonstration. It has not been established as safe or effective for diagnosis, screening, or treatment decisions.</p><p>The displayed score is the model's raw sigmoid output. It is not a calibrated probability, and performance on these examples may not reflect performance on other scanners, populations, or image types.</p><a href="#demo">Try the interactive demo <span aria-hidden="true">↑</span></a></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer"><a class="brand footer-brand" href="#top"><span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span><span>neuro<span class="brand-light">lens</span><small>MODEL LAB</small></span></a><span>STUDENT MODEL SHOWCASE <i>·</i> EDUCATIONAL USE ONLY</span><a href="#top">BACK TO TOP ↑</a></footer>
+</body>
+</html>

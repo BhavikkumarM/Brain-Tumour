@@ -1,0 +1,10 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+.idea/
+.vscode/
+Datasets/
+*.h5
+*.pkl
+deploy.ps1

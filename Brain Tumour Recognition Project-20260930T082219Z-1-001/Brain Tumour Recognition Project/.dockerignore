@@ -1,0 +1,6 @@
+Datasets/
+__pycache__/
+*.py[cod]
+.git/
+uploads/
+main_train.ipynb
