@@ -6,7 +6,8 @@ A Flask-based web application that uses a deep learning model to classify brain 
 
 ## 🚀 Live Demo
 
-Upload a brain MRI scan (JPG/JPEG/PNG) or select one of the bundled demo samples to get an instant prediction.
+- **GitHub Pages (Live Static Web App):** `https://bhavikkumarm.github.io/Brain-Tumour/`
+- Try bundled MRI sample scans or upload your own scan directly in your browser.
 
 ---
 
