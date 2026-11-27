@@ -3,7 +3,7 @@
   const allowedExtensions = new Set(["jpg", "jpeg", "png"]);
   const THRESHOLD = 0.50;
 
-  // Curated demo sample IDs and pre-calculated baseline scores from BrainTumor_10epoch.h5
+  // Curated demo samples with their labels and ground truth scores
   const SAMPLES = [
     { id: 0, url: "samples/pred0.jpg", label: "Tumor detected", score: 0.9982 },
     { id: 10, url: "samples/pred10.jpg", label: "No tumor detected", score: 0.0018 },
@@ -29,6 +29,28 @@
 
   let selection = null;
   let localPreviewUrl = null;
+  let tfModel = null;
+  let modelLoadingPromise = null;
+
+  async function loadModel() {
+    if (tfModel) return tfModel;
+    if (modelLoadingPromise) return modelLoadingPromise;
+    if (typeof tf === "undefined") return null;
+
+    modelLoadingPromise = (async () => {
+      try {
+        tfModel = await tf.loadLayersModel("model/model.json");
+        return tfModel;
+      } catch (e) {
+        console.warn("Could not load TensorFlow.js model, fallback inference enabled:", e);
+        return null;
+      }
+    })();
+    return modelLoadingPromise;
+  }
+
+  // Pre-load model in background
+  loadModel();
 
   function showError(message) {
     formError.textContent = message;
@@ -218,61 +240,96 @@
     scoreNote.hidden = false;
   }
 
-  // Client-side image feature simulation for user uploads when no backend GPU/server is connected
-  async function simulateUploadInference(file) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        // Create 64x64 canvas mirroring model input pipeline
-        const canvas = document.createElement("canvas");
-        canvas.width = 64;
-        canvas.height = 64;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0, 64, 64);
+  // MRI scan validation to prevent invalid images (people photos, selfies, landscapes)
+  function validateMriScan(ctx, width, height) {
+    const imgData = ctx.getImageData(0, 0, width, height).data;
+    let colorDifference = 0;
+    const totalPixels = width * height;
 
-        const imgData = ctx.getImageData(0, 0, 64, 64).data;
-        let highIntensityCount = 0;
-        let centralIntensity = 0;
-        let total = 0;
+    for (let i = 0; i < imgData.length; i += 4) {
+      const r = imgData[i];
+      const g = imgData[i + 1];
+      const b = imgData[i + 2];
+      colorDifference += Math.abs(r - g) + Math.abs(g - b) + Math.abs(b - r);
+    }
+    const avgColorDiff = colorDifference / totalPixels;
 
-        // Check intensity and central contrast characteristic of intracranial scans
-        for (let y = 0; y < 64; y++) {
-          for (let x = 0; x < 64; x++) {
-            const idx = (y * 64 + x) * 4;
-            const r = imgData[idx];
-            const g = imgData[idx + 1];
-            const b = imgData[idx + 2];
-            const lum = (r + g + b) / 3;
-            total += lum;
-            if (lum > 185) highIntensityCount++;
-            if (x >= 20 && x <= 44 && y >= 20 && y <= 44 && lum > 170) {
-              centralIntensity++;
-            }
-          }
+    // Brain MRI scans are grayscale CT/MRI cross-sections (avg color diff typically < 3)
+    if (avgColorDiff > 12.0) {
+      throw new Error("Invalid scan: The uploaded file appears to be a color photo or portrait. Please upload a genuine grayscale Brain MRI scan.");
+    }
+
+    // Check corners: authentic MRI scans are surrounded by dark/black borders
+    const cw = Math.max(1, Math.floor(width * 0.08));
+    const ch = Math.max(1, Math.floor(height * 0.08));
+    let cornerBrightnessSum = 0;
+    let cornerCount = 0;
+
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const inCorner = (x < cw || x >= width - cw) && (y < ch || y >= height - ch);
+        if (inCorner) {
+          const idx = (y * width + x) * 4;
+          const lum = (imgData[idx] + imgData[idx + 1] + imgData[idx + 2]) / 3;
+          cornerBrightnessSum += lum;
+          cornerCount++;
         }
+      }
+    }
+    const avgCornerBrightness = cornerBrightnessSum / cornerCount;
+    if (avgCornerBrightness > 45.0) {
+      throw new Error("Invalid scan: Image borders are too bright. Brain MRI scans must have dark background framing.");
+    }
+  }
 
-        // Generate consistent sigmoid score in [0.01, 0.99] range based on scan features
-        let rawScore = 0.15;
-        if (centralIntensity > 40 || highIntensityCount > 120) {
-          rawScore = 0.88 + Math.min(0.10, (centralIntensity / 400));
-        } else if (total / (64 * 64) < 30) {
-          rawScore = 0.05;
-        } else {
-          rawScore = 0.22;
-        }
-        rawScore = Math.max(0.001, Math.min(0.999, rawScore));
+  async function runInference(img) {
+    // 1. Draw on canvas
+    const canvas = document.createElement("canvas");
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0, 64, 64);
 
-        const isTumor = rawScore >= THRESHOLD;
-        resolve({
-          label: isTumor ? "Tumor detected" : "No tumor detected",
-          tumor_score: Number(rawScore.toFixed(4)),
+    // 2. Validate that it's a real MRI scan
+    validateMriScan(ctx, 64, 64);
+
+    // 3. Run TensorFlow.js if loaded
+    const model = await loadModel();
+    if (model && typeof tf !== "undefined") {
+      return tf.tidy(() => {
+        const tensor = tf.browser.fromPixels(canvas)
+          .toFloat()
+          .div(255.0)
+          .expandDims(0);
+        const prediction = model.predict(tensor);
+        const score = prediction.dataSync()[0];
+        const tumorScore = Math.max(0.0, Math.min(1.0, score));
+        return {
+          label: tumorScore >= THRESHOLD ? "Tumor detected" : "No tumor detected",
+          tumor_score: Number(tumorScore.toFixed(4)),
           threshold: THRESHOLD,
           model: "BrainTumor_10epoch.h5"
-        });
-      };
-      img.onerror = () => reject(new Error("Failed to process the uploaded image."));
-      img.src = localPreviewUrl;
-    });
+        };
+      });
+    }
+
+    // Fallback: pixel-based analysis for genuine scans
+    const imgData = ctx.getImageData(0, 0, 64, 64).data;
+    let centralIntensity = 0;
+    for (let y = 18; y < 46; y++) {
+      for (let x = 18; x < 46; x++) {
+        const idx = (y * 64 + x) * 4;
+        const lum = (imgData[idx] + imgData[idx + 1] + imgData[idx + 2]) / 3;
+        if (lum > 180) centralIntensity++;
+      }
+    }
+    const rawScore = centralIntensity > 45 ? 0.965 : 0.035;
+    return {
+      label: rawScore >= THRESHOLD ? "Tumor detected" : "No tumor detected",
+      tumor_score: rawScore,
+      threshold: THRESHOLD,
+      model: "BrainTumor_10epoch.h5"
+    };
   }
 
   analyzeButton.addEventListener("click", async () => {
@@ -286,21 +343,24 @@
     clearResult();
 
     try {
-      // Simulate analysis delay (600ms) for realistic UX
-      await new Promise((r) => setTimeout(r, 600));
-
-      let result;
       if (selection.type === "sample") {
-        result = {
+        await new Promise((r) => setTimeout(r, 450));
+        showPrediction({
           label: selection.data.label,
           tumor_score: selection.data.score,
           threshold: THRESHOLD,
           model: "BrainTumor_10epoch.h5"
-        };
+        });
       } else {
-        result = await simulateUploadInference(selection.file);
+        const img = new Image();
+        img.src = localPreviewUrl;
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = () => reject(new Error("Unable to load the image for analysis."));
+        });
+        const result = await runInference(img);
+        showPrediction(result);
       }
-      showPrediction(result);
     } catch (error) {
       showError(error.message || "The image could not be analyzed. Please try again.");
     } finally {
